@@ -42,6 +42,18 @@ setup_logging()
 logger = logging.getLogger("dsmf-bot")
 EXECUTOR_CHAT_ID_RT = EXECUTOR_CHAT_ID  # Runtime-da yenilənə bilən icraçı chat ID
 
+# Ümumi error handler – PTB daxili səhvləri daha aydın loglamaq üçün
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        u = update  # type: ignore[assignment]
+        user = getattr(getattr(u, "effective_user", None), "id", None)
+        chat = getattr(getattr(u, "effective_chat", None), "id", None)
+    except Exception:
+        user = chat = None
+    logger.error(
+        "Unhandled error. user=%s chat=%s", user, chat, exc_info=context.error
+    )
+
 # İstifadəçi məlumatları üçün təhlükəsiz köməkçi
 def _ud(context: ContextTypes.DEFAULT_TYPE) -> Dict[str, Any]:
     """Return a mutable user_data dict always (for type checker)."""
@@ -939,6 +951,8 @@ def build_app() -> Application:
         .build()
     )
     app.add_handler(conv)
+    # Global error handler
+    app.add_error_handler(error_handler)
     # İcraçı qrupunda cavab/imtina üçün mini dialoqlar
     exec_conv_reply = ConversationHandler(
         entry_points=[CallbackQueryHandler(exec_reply_entry, pattern=r"^exec_reply:\d+$")],
@@ -1028,7 +1042,8 @@ def main():
     logger.info(f"⏰ Start time: {datetime.now(BAKU_TZ).strftime('%d.%m.%Y %H:%M:%S')}")
     
     try:
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
+        # drop_pending_updates=True – əvvəlki instansiyadan qalan uzun polling sorğularını təmizləyir
+        app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
     except KeyboardInterrupt:
         logger.info("Bot dayandırıldı (KeyboardInterrupt)")
     except Exception as e:
