@@ -426,9 +426,6 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if db_id is not None:  # None check for type safety
             buttons = [
                 [
-                    InlineKeyboardButton("📝 İşləyir", callback_data=f"exec_processing:{db_id}"),
-                ],
-                [
                     InlineKeyboardButton("✉️ Cavablandır", callback_data=f"exec_reply:{db_id}"),
                     InlineKeyboardButton("🚫 İmtina", callback_data=f"exec_reject:{db_id}"),
                 ]
@@ -478,58 +475,6 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 # ================== İcraçı qrup cavab axını ==================
-async def exec_mark_processing(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """İcraçı 'İşləyir' statusu seçəndə."""
-    query = update.callback_query
-    chat = update.effective_chat
-    if not query or not query.data or not str(query.data).startswith("exec_processing:"):
-        return
-    if chat and EXECUTOR_CHAT_ID_RT and chat.id != EXECUTOR_CHAT_ID_RT:
-        await query.answer("Yalnız icraçı qrupunda istifadə oluna bilər", show_alert=True)
-        return
-    app_id = int(query.data.split(":", 1)[1])
-    
-    # Database-də statusu yenilə
-    if DB_ENABLED:
-        try:
-            if USE_SQLITE:
-                from db_sqlite import update_application_status_sqlite
-                update_application_status_sqlite(app_id, "processing")  # type: ignore[possibly-unbound]
-            else:
-                from db_operations import update_application_status
-                from database import ApplicationStatus
-                update_application_status(app_id, ApplicationStatus.PROCESSING)  # type: ignore[possibly-unbound]
-            logger.info(f"✅ App ID={app_id} statusu 'processing' olaraq dəyişdirildi")
-        except Exception as e:
-            logger.error(f"❌ Status update xətası: {e}")
-            await query.answer("Xəta baş verdi", show_alert=True)
-            return
-    
-    # Qrup mesajındakı statusu yenilə
-    if query.message:
-        orig_content = getattr(query.message, "caption", None) or getattr(query.message, "text", None)
-        has_photo = bool(getattr(query.message, "photo", None))
-        executor_username = query.from_user.username or "executor"
-        
-        if orig_content:
-            # Status sətirini regex ilə dəyiş
-            new_content = re.sub(
-                r"🟡 Status: Gözləyir|🔴 Status: Vaxtı keçir",
-                f"📝 Status: İşləyir (@{executor_username})",
-                orig_content
-            )
-            try:
-                if has_photo:
-                    await query.edit_message_caption(caption=new_content, reply_markup=None)
-                else:
-                    await query.edit_message_text(text=new_content, reply_markup=None)
-                await query.answer("📝 İşlənir olaraq işarələndi")
-            except Exception as e:
-                logger.error(f"❌ Mesaj update xətası: {e}")
-                await query.answer("Status dəyişdi, amma mesaj yenilənmədi", show_alert=True)
-    else:
-        await query.answer("📝 İşlənir olaraq işarələndi")
-
 async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat = update.effective_chat
@@ -999,8 +944,6 @@ def build_app() -> Application:
     )
     app.add_handler(exec_conv_reply)
     app.add_handler(exec_conv_reject)
-    # "İşləyir" düyməsi üçün standalone callback handler
-    app.add_handler(CallbackQueryHandler(exec_mark_processing, pattern=r"^exec_processing:\d+$"))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("chatid", chatid_cmd))
     app.add_handler(CommandHandler("export", export_cmd))
