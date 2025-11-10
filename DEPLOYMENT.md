@@ -109,12 +109,13 @@ Bot `/export` komandasında müraciətləri CSV formatında export edə bilərl�
    - Form Type (Complaint/Suggestion)
    - Subject and Body
    - Status (Waiting/Overdue/Completed/Rejected)
+   - **Reply** (İcraçının cavabı/imtina səbəbi) ← YENİ!
    - Created Date and Updated Date
 
 **Nümunə CSV:**
 ```
-ID,Full Name,Phone,FIN,Form Type,Subject,Body,Status,Created Date,Updated Date
-1,Rasul Babayev,+994773632066,538YB23,Complaint,Road damage,Pothole on gate road,Waiting,10.11.2025 20:54:34,10.11.2025 20:54:34
+ID,Full Name,Phone,FIN,Form Type,Subject,Body,Status,Reply,Created Date,Updated Date
+1,Rasul Babayev,+994773632066,538YB23,Complaint,Road damage,Pothole on gate road,Completed,Road repaired on 10.11.2025,10.11.2025 20:54:34,10.11.2025 21:30:00
 ```
 
 **Rəhbərliyə göstərmə:**

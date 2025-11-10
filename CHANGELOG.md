@@ -2,9 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.2] - 2025-11-10 (PostgreSQL CSV Export + Session Fixes + Test Data Cleanup + Polling Conflict Handling)
+## [0.4.2] - 2025-11-10 (PostgreSQL CSV Export + Session Fixes + Test Data Cleanup + Polling Conflict Handling + Reply Storage)
 ### Added
-- **PostgreSQL CSV export**: `/export` command now generates CSV file for appeals in PostgreSQL database, with proper English column headers (ID, Full Name, Phone, FIN, Form Type, Subject, Body, Status, Created Date, Updated Date).
+- **PostgreSQL CSV export**: `/export` command now generates CSV file for appeals in PostgreSQL database, with proper English column headers (ID, Full Name, Phone, FIN, Form Type, Subject, Body, Status, Reply, Created Date, Updated Date).
+- **Reply text storage**: Executor's responses (cavab/imtina səbəbi) are now stored in `reply_text` database field and exported to CSV for record-keeping.
 - **Management reporting**: CSV format enables direct Excel import for pivot tables, statistics, and trend analysis.
 - **Timezone-aware timestamps**: All exported dates use dd.mm.yyyy HH:MM:SS format with Bakı timezone (Asia/Baku).
 - **Test data cleanup**: `/clearall` admin command to delete all applications from database (useful for clearing test data during development).
