@@ -27,8 +27,7 @@ sosial_agent/
   - 🔴 **Vaxtı keçir** - 10+ gündür cavabsız (təcili diqqət tələb edir)
   - 🟢 **İcra edildi** - cavablandırıldı
   - ⚫ **İmtina** - rədd edildi
-- **İcraçı qrupunda interaktiv düymələr:** 📝 İşləyir / ✉️ Cavablandır / 🚫 İmtina
-   - “� İşləyir” düyməsi ilə “işləmə” statusu qoyulur
+- **İcraçı qrupunda interaktiv düymələr:** ✉️ Cavablandır / 🚫 İmtina
    - Cavab/imtina zamanı status avtomatik yenilənir
    - İcraçının adı status sətirində göstərilir
 - **Vətəndaşa DM bildiriş:** Cavab və ya imtina səbəbi birbaşa göndərilir

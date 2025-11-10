@@ -14,7 +14,6 @@ Tam istifadəçi və admin komanda siyahısı.
 ## İcraçı Qrup İçi Inline Düymələr
 | Düymə | Funksiya |
 |-------|----------|
-| 📝 İşləyir | Müraciəti aktiv işlənir statusuna keçir (processing) |
 | ✉️ Cavablandır | Cavab mətnini daxil etmə dialoqunu açır; status 🟢 İcra edildi |
 | 🚫 İmtina | İmtina səbəbi daxil etmə dialoqu; status ⚫ İmtina |
 
@@ -48,14 +47,13 @@ Tam istifadəçi və admin komanda siyahısı.
 |--------|------|
 | 🟡 Gözləyir | Yeni müraciət (0–9 gün) |
 | 🔴 Vaxtı keçir | ≥10 gün cavabsız |
-| 📝 İşləyir | İcraçı işləməyə başlayıb |
-| 🟢 İcra edildi | Cavablandırılıb / tamamlanıb |
+|  İcra edildi | Cavablandırılıb / tamamlanıb |
 | ⚫ İmtina | Rədd edilib |
 
 ## Tövsiyə Edilən İstifadə
 1. İstifadəçi `/start` ilə başlayan anketi tamamlayır.
 2. Müraciət icraçı qrupuna yönləndirilir (foto + xülasə).
-3. İcraçı əvvəlcə "📝 İşləyir" işarələyə bilər (başqaları statusu görür).
+3. İcraçı "✉️ Cavablandır" və ya "� İmtina" seçərək cavab verir.
 4. Cavablandırılarsa status 🟢, imtina olunarsa ⚫ olur və vətəndaşa DM gedir.
 5. Uzun müddət cavabsız qalarsa tələsik diqqət üçün 🔴 olur.
 
