@@ -96,6 +96,32 @@ git push
 
 Railway **avtomatik** yenidən deploy edəcək.
 
+## Export Funksionallığı (v0.4.2+)
+
+### CSV Export PostgreSQL-dən
+
+Bot `/export` komandasında müraciətləri CSV formatında export edə bilərlər:
+
+1. **Admin qrupda `/export` yazın**
+2. Bot CSV fayl göndərəcək
+3. **Excel-də açıb analiz edin:**
+   - ID, Tam Ad, Telefon, FIN
+   - Müraciət Tipi (Şikayət/Təklif)
+   - Mövzu və Məzmun
+   - Status (Gözləyir/Vaxtı keçir/İcra edildi/İmtina)
+   - Yaradılma və Yenilənmə Tarixləri
+
+**Nümunə CSV:**
+```
+ID,Tam Ad,Telefon,FIN,Müraciət Tipi,Mövzu,Məzmun,Status,Yaradılma Tarixi,Yenilənmə Tarixi
+1,Rəsul Babayev,+994773632066,538YB23,Şikayət,Yol xarab,Qapı yolunda çukur,Gözləyir,10.11.2025 20:54:34,10.11.2025 20:54:34
+```
+
+**Rəhbərliyə göstərmə:**
+- CSV-ni Excel-ə import et
+- Pivot table ilə status-a görə statistika yap
+- Graph-larla təqdimat et
+
 ## Troubleshooting
 
 ### Bot işləmir?

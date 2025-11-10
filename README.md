@@ -1,5 +1,5 @@
 # DSMF Vətəndaş Müraciət Botu  
-Versiya:** 0.4.1  
+**Versiya:** 0.4.2  
 **Son yeniləmə:** 2025-11-10
 
 Bu layihə vətəndaşlardan mərhələli anket ilə məlumat toplayıb icraçı qrupuna yönləndirir, qrupdakı əməkdaşların inline düymələrlə cavab / imtina etməsinə imkan verir və cavabı vətəndaşa DM ilə çatdırır. Qrup mesajlarında real-time status göstəricisi mövcuddur.
@@ -36,8 +36,12 @@ sosial_agent/
 - **PostgreSQL persistensiyası** (lokalda FORCE_SQLITE=1 ilə SQLite)
 - **Avtomatik supergroup ID miqrasiyası** (qədim qrup -> -100… supergroup)
 - **Bakı vaxtı timezone və timestamp**
-- `/export` (yalnız SQLite) JSON arxiv çıxarışı
+- **`/export` CSV export** (PostgreSQL: CSV fayl, SQLite: JSON)
 - **Diaqnostika komandaları:** `/ping`, `/chatid`
+
+### Yeni (0.4.2)
+- **PostgreSQL CSV Export:** `/export` komndasında PostgreSQL üçün CSV fayl export (ID, Tam Ad, Telefon, FIN, Müraciət Tipi, Mövzu, Məzmun, Status, Tarixlər)
+- **Rəhbərliyə məlumat:** Admin CSV-ni download edib Excel-də müraciətləri analiz edə bilərlər
 
 ### Yeni (0.4.0)
 - **SLA xatırlatmaları:** Hər gün 09:00-da 3+ gün cavabsız müraciətlərin siyahısı icraçı qrupuna göndərilir
@@ -93,7 +97,7 @@ $env:FORCE_SQLITE="1"
    - `/help` - Yardım məlumatı
    - `/chatid` - Cari chat ID-ni göstər
    - `/ping` - Sağlamlıq test
-   - `/export` - SQLite JSON export (yalnız SQLite modunda)
+   - `/export` - **Müraciətləri CSV-ə export et** (PostgreSQL) / JSON (SQLite)
 - Admin:
    - `/blacklist` - Qara siyahını göstər
    - `/ban <user_id> [səbəb]` - Qara siyahıya əlavə et
