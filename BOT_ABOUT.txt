@@ -1,0 +1,13 @@
+🇦🇿 Vətəndaş Müraciət Platforması
+
+Vətəndaşlardan müraciətləri qəbul edib icraçılar tərəfindən cavablandıran Telegram botu.
+
+⚡ Xüsusiyyətlər:
+• Mərhələli anket (ad, telefon, FIN, foto, mövzu)
+• Real-time status göstəricisi
+• İcraçılar: ✉️ Cavablandır / 🚫 İmtina
+• DM bildirişi
+• CSV export
+• Qara siyahı sistemi
+
+/start ile başlayın
