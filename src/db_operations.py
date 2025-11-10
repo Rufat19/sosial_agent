@@ -80,21 +80,30 @@ def save_application(
 def get_application_by_id(app_id: int) -> Application:
     """ID ilə müraciəti tap"""
     with get_db() as db:
-        return db.query(Application).filter(Application.id == app_id).first()
+        app = db.query(Application).filter(Application.id == app_id).first()
+        if app:
+            db.expunge(app)
+        return app
 
 def get_applications_by_user(user_telegram_id: int) -> list[Application]:
     """İstifadəçinin bütün müraciətləri"""
     with get_db() as db:
-        return db.query(Application).filter(
+        apps = db.query(Application).filter(
             Application.user_telegram_id == user_telegram_id
         ).order_by(Application.created_at.desc()).all()
+        for app in apps:
+            db.expunge(app)
+        return apps
 
 def get_applications_by_status(status: ApplicationStatus) -> list[Application]:
     """Status üzrə müraciətlər"""
     with get_db() as db:
-        return db.query(Application).filter(
+        apps = db.query(Application).filter(
             Application.status == status
         ).order_by(Application.created_at.desc()).all()
+        for app in apps:
+            db.expunge(app)
+        return apps
 
 def update_application_status(app_id: int, status: ApplicationStatus, notes: Optional[str] = None):
     """Müraciət statusunu yenilə"""
@@ -117,7 +126,10 @@ def search_applications(fin: Optional[str] = None, phone: Optional[str] = None) 
             query = query.filter(Application.fin == fin.upper())
         if phone:
             query = query.filter(Application.phone == phone)
-        return query.order_by(Application.created_at.desc()).all()
+        apps = query.order_by(Application.created_at.desc()).all()
+        for app in apps:
+            db.expunge(app)
+        return apps
 
 def is_user_blacklisted(user_telegram_id: int) -> bool:
     """İstifadəçi qara siyahıdadırmı?"""
@@ -191,13 +203,14 @@ def export_to_csv(limit: int = 1000) -> str:
     # Məlumatları yaz
     with get_db() as db:
         apps = db.query(Application).order_by(Application.created_at.desc()).limit(limit).all()
+        rows = []
         for app in apps:
-            form_type = "Şikayət" if app.form_type == FormTypeDB.COMPLAINT else "Təklif"
+            form_type = "Şikayət" if app.form_type.value == "complaint" else "Təklif"
             status_text = app.status.value if app.status is not None else "Naməlum"
             created_str = app.created_at.strftime("%d.%m.%Y %H:%M:%S") if app.created_at is not None else ""
             updated_str = app.updated_at.strftime("%d.%m.%Y %H:%M:%S") if app.updated_at is not None else ""
             
-            writer.writerow([
+            rows.append([
                 app.id,
                 app.fullname or "",
                 app.phone or "",
@@ -209,7 +222,13 @@ def export_to_csv(limit: int = 1000) -> str:
                 created_str,
                 updated_str,
             ])
+        
+        # Expunge all objects after processing
+        for app in apps:
+            db.expunge(app)
     
+    # Write rows after session is closed
+    writer.writerows(rows)
     csv_content = csv_buffer.getvalue()
     csv_buffer.close()
     return csv_content
