@@ -509,9 +509,67 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_store["exec_has_photo"] = bool(getattr(query.message, "photo", None))
     await query.answer()
     await query.edit_message_reply_markup(None)
-    # Cavab almaq üçün DM-ə mesaj göndər (qrupda deyil)
+    
+    # DM-ə müraciətin tam mətnini göndər
     if user:
-        await context.bot.send_message(chat_id=user.id, text=f"📝 Cavab mətni yazın (ID={app_id}):")
+        try:
+            app_text = None
+            id_photo = None
+            
+            if USE_SQLITE:
+                from db_sqlite import get_application_by_id_sqlite
+                app_data = get_application_by_id_sqlite(app_id)
+                if app_data:
+                    time_str = str(app_data.get('created_at', ''))
+                    app_text = (
+                        "📋 Müraciət xülasəsi:\n"
+                        f"👤 {app_data.get('fullname', '')}\n"
+                        f"📱 Mobil nömrə: {app_data.get('phone', '')}\n"
+                        f"🆔 FIN: {app_data.get('fin', '')}\n"
+                        f"📝 Mövzu: {app_data.get('subject', '')}\n"
+                        f"✍️ Məzmun: {app_data.get('body', '')}\n\n"
+                        f"⏰ {time_str}\n"
+                        "━━━━━━━━━━━━━━━━━━━━\n"
+                        "👇 Aşağıya cavab yazın:"
+                    )
+                    id_photo = app_data.get('id_photo_file_id')
+            else:
+                from db_operations import get_application_by_id
+                app = get_application_by_id(app_id)
+                if app:
+                    time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
+                    app_text = (
+                        "📋 Müraciət xülasəsi:\n"
+                        f"👤 {app.fullname}\n"
+                        f"📱 Mobil nömrə: {app.phone}\n"
+                        f"🆔 FIN: {app.fin}\n"
+                        f"📝 Mövzu: {app.subject}\n"
+                        f"✍️ Məzmun: {app.body}\n\n"
+                        f"⏰ {time_str}\n"
+                        "━━━━━━━━━━━━━━━━━━━━\n"
+                        "👇 Aşağıya cavab yazın:"
+                    )
+                    id_photo = app.id_photo_file_id  # type: ignore[assignment]
+            
+            if app_text and id_photo:
+                await context.bot.send_photo(
+                    chat_id=user.id,
+                    photo=id_photo,  # type: ignore[arg-type]
+                    caption=app_text
+                )
+            elif app_text:
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=app_text
+                )
+        except Exception as e:
+            logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
+            if user:
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=f"📝 Cavab mətni yazın (ID={app_id}):"
+                )
+    
     return States.EXEC_REPLY_TEXT
 
 async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -536,9 +594,64 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_store["exec_has_photo"] = bool(getattr(query.message, "photo", None))
     await query.answer()
     await query.edit_message_reply_markup(None)
-    # İmtina səbəbini almaq üçün DM-ə mesaj göndər (qrupda deyil)
+    
+    # DM-ə müraciətin tam mətnini göndər
     if user:
-        await context.bot.send_message(chat_id=user.id, text=f"🚫 İmtina səbəbini yazın (ID={app_id}):")
+        try:
+            if USE_SQLITE:
+                from db_sqlite import get_application_by_id_sqlite
+                app_data = get_application_by_id_sqlite(app_id)
+                if app_data:
+                    time_str = app_data.get('created_at', '')
+                    app_text = (
+                        "📋 Müraciət xülasəsi:\n"
+                        f"👤 {app_data.get('fullname', '')}\n"
+                        f"📱 Mobil nömrə: {app_data.get('phone', '')}\n"
+                        f"🆔 FIN: {app_data.get('fin', '')}\n"
+                        f"📝 Mövzu: {app_data.get('subject', '')}\n"
+                        f"✍️ Məzmun: {app_data.get('body', '')}\n\n"
+                        f"⏰ {time_str}\n"
+                        "━━━━━━━━━━━━━━━━━━━━\n"
+                        "👇 İmtina səbəbini yazın:"
+                    )
+                    id_photo = app_data.get('id_photo_file_id')
+            else:
+                from db_operations import get_application_by_id
+                app = get_application_by_id(app_id)
+                if app:
+                    time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
+                    app_text = (
+                        "📋 Müraciət xülasəsi:\n"
+                        f"👤 {app.fullname}\n"
+                        f"📱 Mobil nömrə: {app.phone}\n"
+                        f"🆔 FIN: {app.fin}\n"
+                        f"📝 Mövzu: {app.subject}\n"
+                        f"✍️ Məzmun: {app.body}\n\n"
+                        f"⏰ {time_str}\n"
+                        "━━━━━━━━━━━━━━━━━━━━\n"
+                        "👇 İmtina səbəbini yazın:"
+                    )
+                    id_photo = app.id_photo_file_id  # type: ignore[assignment]
+            
+            if app_text and id_photo:
+                await context.bot.send_photo(
+                    chat_id=user.id,
+                    photo=id_photo,
+                    caption=app_text
+                )
+            elif app_text:
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=app_text
+                )
+        except Exception as e:
+            logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
+            if user:
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=f"🚫 İmtina səbəbini yazın (ID={app_id}):"
+                )
+    
     return States.EXEC_REJECT_REASON
 
 async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
