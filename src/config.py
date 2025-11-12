@@ -89,10 +89,9 @@ BLACKLIST_WINDOW_DAYS = 30         # bu qədər gün ərzində
 # Mətnlər (Azərbaycan dili)
 MESSAGES = {
     "welcome": (
-        "🏛 DSMF Müraciət Botuna xoş gəldiniz.\n\n"
-        "Başlamaq üçün AD, SOYAD, ATA ADINIZI qeyd edin.\n"
+        "Zəhmət olmasa əvvəlcə SOYAD, AD və ATA ADINIZI daxil edin.\n"
     ),
-    "fullname_error": "Zəhmət olmasa ad və soyadı daxil edin (ata adı da ola bilər).",
+    "fullname_error": "Zəhmət olmasa SOYAD və AD daxil edin (ATA ADI da ola bilər).",
     "phone_prompt": "📱 Mobil nömrənizi daxil edin.\nMəsələn: +994501234567",
     "phone_error": "Nömrə düzgün formatda deyil. Məsələn: +994501234567",
     "fin_prompt": "🆔 Şəxsiyyət vəsiqənizin FIN kodunu daxil edin (7 simvol).",

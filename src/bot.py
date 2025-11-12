@@ -233,7 +233,8 @@ async def collect_fullname(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     if not msg or not msg.text:
         return States.FULLNAME
-    name = msg.text.strip()
+    # Ad soyad normalizasiyası: artıq boşluqları sil və standartlaşdır
+    name = " ".join(msg.text.split()).strip()
     if len(name.split()) < MIN_NAME_LENGTH:
         await msg.reply_text(MESSAGES["fullname_error"])
         return States.FULLNAME
