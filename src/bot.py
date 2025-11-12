@@ -159,7 +159,6 @@ class ApplicationData:
             f"📱 Mobil nömrə: {self.phone}\n"
             f"🆔 FIN: {self.fin}\n"
             # Form növü gizlədilib (istifadəçi və qrup mesajlarında göstərilmir)
-            f"📝 Mövzu: {self.subject}\n"
             f"✍️ Məzmun: {self.body}\n\n"
             f"{time_str}"
         )
@@ -302,8 +301,9 @@ async def choose_form_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _ud(context)["app"].form_type = FormType.COMPLAINT  # type: ignore[index]
     else:
         _ud(context)["app"].form_type = FormType.SUGGESTION  # type: ignore[index]
-    await query.edit_message_text(MESSAGES["subject_prompt"])
-    return States.SUBJECT
+    # Mövzu addımı çıxarıldı – birbaşa mətni toplayırıq
+    await query.edit_message_text(MESSAGES["body_prompt"])
+    return States.BODY
 
 async def collect_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
@@ -327,6 +327,11 @@ async def collect_body(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return States.BODY
     app_data = _ud(context).setdefault("app", ApplicationData())
     app_data.body = body
+    # Mövzu tələb olunmur; DB üçün avtomatik qısa başlıq çıxarırıq (ilk 150 simvol)
+    try:
+        app_data.subject = body[:150]
+    except Exception:
+        app_data.subject = body
     app_data.timestamp = datetime.now(BAKU_TZ)
     app: ApplicationData = app_data
     buttons = [
@@ -352,8 +357,9 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(MESSAGES["cancelled"])
         return ConversationHandler.END
     if query.data == "edit":
-        await query.edit_message_text("Hansını düzəltmək istəyirsiniz? Ad/Soyad/Telefon/FIN/Mövzu/Mətn yazın.")
-        return States.SUBJECT
+        # Mövzu addımı ləğv olundu – birbaşa mətni yenidən yazmağı istəyirik
+        await query.edit_message_text("Zəhmət olmasa müraciət mətnini yenidən yazın:")
+        return States.BODY
     # confirm
     await query.edit_message_text(MESSAGES["confirm_sent"])
 
@@ -514,55 +520,57 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # DM-ə müraciətin tam mətnini göndər
     if user:
         try:
-            app_text = None
-            id_photo = None
+            app_text_var: Optional[str] = None
+            id_photo_var: Optional[str] = None
             
             if USE_SQLITE:
                 from db_sqlite import get_application_by_id_sqlite
                 app_data = get_application_by_id_sqlite(app_id)
                 if app_data:
                     time_str = str(app_data.get('created_at', ''))
-                    app_text = (
+                    app_text_var = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app_data.get('fullname', '')}\n"
                         f"📱 Mobil nömrə: {app_data.get('phone', '')}\n"
                         f"🆔 FIN: {app_data.get('fin', '')}\n"
-                        f"📝 Mövzu: {app_data.get('subject', '')}\n"
                         f"✍️ Məzmun: {app_data.get('body', '')}\n\n"
                         f"⏰ {time_str}\n"
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "Müraciət sizin tərəfinizdən qəbul edildi:"
                     )
-                    id_photo = app_data.get('id_photo_file_id')
+                    id_photo_var = app_data.get('id_photo_file_id')
             else:
                 from db_operations import get_application_by_id
                 app = get_application_by_id(app_id)
                 if app:
                     time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
-                    app_text = (
+                    app_text_var = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app.fullname}\n"
                         f"📱 Mobil nömrə: {app.phone}\n"
                         f"🆔 FIN: {app.fin}\n"
-                        f"📝 Mövzu: {app.subject}\n"
                         f"✍️ Məzmun: {app.body}\n\n"
                         f"⏰ {time_str}\n"
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "Müraciət sizin tərəfinizdən qəbul edildi:"
                     )
-                    id_photo = app.id_photo_file_id  # type: ignore[assignment]
+                    try:
+                        id_photo_var = str(app.id_photo_file_id)  # type: ignore[arg-type]
+                    except Exception:
+                        id_photo_var = None
             
-            if app_text and id_photo:
-                await context.bot.send_photo(
-                    chat_id=user.id,
-                    photo=id_photo,  # type: ignore[arg-type]
-                    caption=app_text
-                )
-            elif app_text:
-                await context.bot.send_message(
-                    chat_id=user.id,
-                    text=app_text
-                )
+            if app_text_var:
+                if isinstance(id_photo_var, str) and id_photo_var:
+                    await context.bot.send_photo(
+                        chat_id=user.id,
+                        photo=id_photo_var,
+                        caption=app_text_var
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=user.id,
+                        text=app_text_var
+                    )
         except Exception as e:
             logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
             if user:
@@ -600,52 +608,56 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # DM-ə müraciətin tam mətnini göndər
     if user:
         try:
+            app_text_var: Optional[str] = None
+            id_photo_var: Optional[str] = None
             if USE_SQLITE:
                 from db_sqlite import get_application_by_id_sqlite
                 app_data = get_application_by_id_sqlite(app_id)
                 if app_data:
                     time_str = app_data.get('created_at', '')
-                    app_text = (
+                    app_text_var = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app_data.get('fullname', '')}\n"
                         f"📱 Mobil nömrə: {app_data.get('phone', '')}\n"
                         f"🆔 FIN: {app_data.get('fin', '')}\n"
-                        f"📝 Mövzu: {app_data.get('subject', '')}\n"
                         f"✍️ Məzmun: {app_data.get('body', '')}\n\n"
                         f"⏰ {time_str}\n"
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "👇 İmtina səbəbini yazın:"
                     )
-                    id_photo = app_data.get('id_photo_file_id')
+                    id_photo_var = app_data.get('id_photo_file_id')
             else:
                 from db_operations import get_application_by_id
                 app = get_application_by_id(app_id)
                 if app:
                     time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
-                    app_text = (
+                    app_text_var = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app.fullname}\n"
                         f"📱 Mobil nömrə: {app.phone}\n"
                         f"🆔 FIN: {app.fin}\n"
-                        f"📝 Mövzu: {app.subject}\n"
                         f"✍️ Məzmun: {app.body}\n\n"
                         f"⏰ {time_str}\n"
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "👇 İmtina səbəbini yazın:"
                     )
-                    id_photo = app.id_photo_file_id  # type: ignore[assignment]
+                    try:
+                        id_photo_var = str(app.id_photo_file_id)  # type: ignore[arg-type]
+                    except Exception:
+                        id_photo_var = None
             
-            if app_text and id_photo:
-                await context.bot.send_photo(
-                    chat_id=user.id,
-                    photo=id_photo,
-                    caption=app_text
-                )
-            elif app_text:
-                await context.bot.send_message(
-                    chat_id=user.id,
-                    text=app_text
-                )
+            if app_text_var:
+                if isinstance(id_photo_var, str) and id_photo_var:
+                    await context.bot.send_photo(
+                        chat_id=user.id,
+                        photo=id_photo_var,
+                        caption=app_text_var
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=user.id,
+                        text=app_text_var
+                    )
         except Exception as e:
             logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
             if user:
