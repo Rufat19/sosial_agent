@@ -7,7 +7,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator, Optional
 from database import Base, Application, ApplicationStatus, FormTypeDB, BlacklistedUser
-from config import logger
+from config import logger, BAKU_TZ
+from datetime import timezone
 
 # Database URL (Railway environment variable-dan)
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/dsmf_bot")
@@ -35,6 +36,29 @@ def _run_migrations():
                 """))
                 conn.commit()
                 logger.info("✅ reply_text column added")
+
+            # Drop deprecated columns if they exist (PostgreSQL only)
+            # subject column
+            result = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='applications' AND column_name='subject'
+            """))
+            if result.fetchone():
+                logger.info("🔧 Dropping deprecated column: subject")
+                conn.execute(text("ALTER TABLE applications DROP COLUMN IF EXISTS subject"))
+                conn.commit()
+                logger.info("✅ subject column dropped")
+
+            # id_photo_file_id column
+            result = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='applications' AND column_name='id_photo_file_id'
+            """))
+            if result.fetchone():
+                logger.info("🔧 Dropping deprecated column: id_photo_file_id")
+                conn.execute(text("ALTER TABLE applications DROP COLUMN IF EXISTS id_photo_file_id"))
+                conn.commit()
+                logger.info("✅ id_photo_file_id column dropped")
     except Exception as e:
         logger.warning(f"⚠️ Migration check skipped (may not be PostgreSQL): {type(e).__name__}")
 
@@ -69,9 +93,7 @@ def save_application(
     fullname: str,
     phone: str,
     fin: str,
-    id_photo_file_id: str,
     form_type: str,
-    subject: str,
     body: str,
     created_at,
 ) -> Application:
@@ -83,9 +105,7 @@ def save_application(
             fullname=fullname,
             phone=phone,
             fin=fin,
-            id_photo_file_id=id_photo_file_id,
             form_type=FormTypeDB.COMPLAINT if form_type == "Şikayət" else FormTypeDB.SUGGESTION,
-            subject=subject,
             body=body,
             status=ApplicationStatus.PENDING,
             created_at=created_at,
@@ -220,37 +240,52 @@ def export_to_csv(limit: int = 1000) -> str:
     csv_buffer = io.StringIO()
     writer = csv.writer(csv_buffer)
     
-    # Header sətri
+    # Header sətri (Azərbaycan dilində)
     writer.writerow([
-        "ID", "Full Name", "Phone", "FIN", "Form Type", 
-        "Subject", "Body", "Status", "Reply", "Created Date", "Updated Date"
+        "ID", "Ad Soyad", "Telefon", "FIN", "Form Növü",
+        "Məzmun", "Status", "Cavab", "Yaradılma Tarixi", "Yenilənmə Tarixi"
     ])
     
     # Məlumatları yaz
     with get_db() as db:
         apps = db.query(Application).order_by(Application.created_at.desc()).limit(limit).all()
         rows = []
+        def _fmt_baku(dt):
+            if dt is None:
+                return ""
+            try:
+                if getattr(dt, 'tzinfo', None) is None:
+                    # Assume UTC if tz is missing
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt_baku = dt.astimezone(BAKU_TZ)
+                return dt_baku.strftime("%d.%m.%Y %H:%M:%S")
+            except Exception:
+                try:
+                    return dt.strftime("%d.%m.%Y %H:%M:%S")
+                except Exception:
+                    return ""
+
         for app in apps:
-            form_type = "Complaint" if app.form_type.value == "complaint" else "Suggestion"
-            # Status daha aydın göstər
+            form_type = "Şikayət" if app.form_type.value == "complaint" else "Təklif"
+            # Status daha aydın göstər (Azərbaycan dilində)
             if app.status.value == "answered":
-                status_text = "Answered ✉️"  # Cavablandırıldı
+                status_text = "Cavablandırıldı ✉️"
             elif app.status.value == "rejected":
-                status_text = "Rejected 🚫"   # İmtina edildi
+                status_text = "İmtina edildi 🚫"
             elif app.status.value == "waiting":
-                status_text = "Waiting 🟡"    # Gözləyir
+                status_text = "Gözləyir 🟡"
             else:
                 status_text = app.status.value
-            created_str = app.created_at.strftime("%d.%m.%Y %H:%M:%S") if app.created_at is not None else ""
-            updated_str = app.updated_at.strftime("%d.%m.%Y %H:%M:%S") if app.updated_at is not None else ""
-            
+
+            created_str = _fmt_baku(app.created_at)
+            updated_str = _fmt_baku(app.updated_at)
+
             rows.append([
                 app.id,
                 app.fullname or "",
                 app.phone or "",
                 app.fin or "",
                 form_type,
-                app.subject or "",
                 app.body or "",
                 status_text,
                 app.reply_text or "",

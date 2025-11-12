@@ -402,9 +402,7 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     fullname=app.fullname,  # type: ignore[arg-type]
                     phone=app.phone,  # type: ignore[arg-type]
                     fin=app.fin,  # type: ignore[arg-type]
-                    id_photo_file_id=app.id_photo_file_id,  # type: ignore[arg-type]
                     form_type=app.form_type,  # type: ignore[arg-type]
-                    subject=app.subject,  # type: ignore[arg-type]
                     body=app.body,  # type: ignore[arg-type]
                     created_at=app.timestamp,  # type: ignore[arg-type]
                 )
@@ -449,16 +447,9 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             kb = InlineKeyboardMarkup(buttons)
         try:
-            logger.info(f"İcraçılara göndərilir: chat_id={EXECUTOR_CHAT_ID_RT}, photo_present={bool(app.id_photo_file_id)}")
-            if app.id_photo_file_id:
-                await context.bot.send_photo(
-                    chat_id=EXECUTOR_CHAT_ID_RT,
-                    photo=app.id_photo_file_id,
-                    caption=caption,
-                    reply_markup=kb,
-                )
-            else:
-                await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
+            logger.info(f"İcraçılara göndərilir: chat_id={EXECUTOR_CHAT_ID_RT}")
+            # Foto paylaşımı dayandırılıb; yalnız mətn göndərilir
+            await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
             logger.info("✅ İcraçı qrupuna göndərildi")
         except Exception as send_err:
             msg = str(send_err)
@@ -471,15 +462,7 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     logger.warning(f"➡️ Yeni supergroup ID aşkarlandı: {new_id} — runtime yenilənir. .env-də EXECUTOR_CHAT_ID dəyərini də buna dəyişin.")
                     EXECUTOR_CHAT_ID_RT = new_id
                     try:
-                        if app.id_photo_file_id:
-                            await context.bot.send_photo(
-                                chat_id=EXECUTOR_CHAT_ID_RT,
-                                photo=app.id_photo_file_id,
-                                caption=caption,
-                                reply_markup=kb,
-                            )
-                        else:
-                            await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
+                        await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
                         logger.info("✅ Yeni ID ilə icraçı qrupuna göndərildi")
                     except Exception as retry_err:
                         logger.error(f"❌ Yeni ID ilə göndərmə də alınmadı: {retry_err}")
@@ -521,7 +504,6 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user:
         try:
             app_text_var: Optional[str] = None
-            id_photo_var: Optional[str] = None
             
             if USE_SQLITE:
                 from db_sqlite import get_application_by_id_sqlite
@@ -538,12 +520,20 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "Müraciət sizin tərəfinizdən qəbul edildi:"
                     )
-                    id_photo_var = app_data.get('id_photo_file_id')
             else:
                 from db_operations import get_application_by_id
                 app = get_application_by_id(app_id)
                 if app:
-                    time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
+                    # Bakı vaxtına çevir
+                    try:
+                        from config import BAKU_TZ
+                        from datetime import timezone
+                        dt = app.created_at
+                        if dt is not None and getattr(dt, 'tzinfo', None) is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        time_str = dt.astimezone(BAKU_TZ).strftime('%d.%m.%y %H:%M:%S') if dt is not None else ''  # type: ignore[union-attr]
+                    except Exception:
+                        time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
                     app_text_var = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app.fullname}\n"
@@ -554,23 +544,12 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "Müraciət sizin tərəfinizdən qəbul edildi:"
                     )
-                    try:
-                        id_photo_var = str(app.id_photo_file_id)  # type: ignore[arg-type]
-                    except Exception:
-                        id_photo_var = None
             
             if app_text_var:
-                if isinstance(id_photo_var, str) and id_photo_var:
-                    await context.bot.send_photo(
-                        chat_id=user.id,
-                        photo=id_photo_var,
-                        caption=app_text_var
-                    )
-                else:
-                    await context.bot.send_message(
-                        chat_id=user.id,
-                        text=app_text_var
-                    )
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=app_text_var
+                )
         except Exception as e:
             logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
             if user:
@@ -609,7 +588,6 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user:
         try:
             app_text_var: Optional[str] = None
-            id_photo_var: Optional[str] = None
             if USE_SQLITE:
                 from db_sqlite import get_application_by_id_sqlite
                 app_data = get_application_by_id_sqlite(app_id)
@@ -625,12 +603,20 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "👇 İmtina səbəbini yazın:"
                     )
-                    id_photo_var = app_data.get('id_photo_file_id')
             else:
                 from db_operations import get_application_by_id
                 app = get_application_by_id(app_id)
                 if app:
-                    time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
+                    # Bakı vaxtına çevir
+                    try:
+                        from config import BAKU_TZ
+                        from datetime import timezone
+                        dt = app.created_at
+                        if dt is not None and getattr(dt, 'tzinfo', None) is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        time_str = dt.astimezone(BAKU_TZ).strftime('%d.%m.%y %H:%M:%S') if dt is not None else ''  # type: ignore[union-attr]
+                    except Exception:
+                        time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
                     app_text_var = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app.fullname}\n"
@@ -641,23 +627,12 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "👇 İmtina səbəbini yazın:"
                     )
-                    try:
-                        id_photo_var = str(app.id_photo_file_id)  # type: ignore[arg-type]
-                    except Exception:
-                        id_photo_var = None
             
             if app_text_var:
-                if isinstance(id_photo_var, str) and id_photo_var:
-                    await context.bot.send_photo(
-                        chat_id=user.id,
-                        photo=id_photo_var,
-                        caption=app_text_var
-                    )
-                else:
-                    await context.bot.send_message(
-                        chat_id=user.id,
-                        text=app_text_var
-                    )
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=app_text_var
+                )
         except Exception as e:
             logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
             if user:
@@ -915,15 +890,15 @@ async def sla_reminder_job(context: ContextTypes.DEFAULT_TYPE):
         for app in overdue_apps[:10]:  # İlk 10-u göstər
             if USE_SQLITE:
                 app_id = app["id"]
-                subject = app["subject"]
+                title = (app.get("body") or "")
                 created = app["created_at"]
             else:
                 app_id = app.id
-                subject = app.subject
+                title = app.body
                 # Type ignore for PostgreSQL Column type
                 created = app.created_at.strftime('%d.%m.%Y') if app.created_at is not None else "N/A"  # type: ignore[union-attr]
             
-            message += f"🆔 {app_id} - {subject[:30]}... ({created})\n"
+            message += f"🆔 {app_id} - {title[:30]}... ({created})\n"
         
         if count > 10:
             message += f"\n...və daha {count - 10} müraciət"

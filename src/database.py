@@ -52,11 +52,8 @@ class Application(Base):
     fullname = Column(String(255), nullable=False)
     phone = Column(String(20), nullable=False)
     fin = Column(String(7), nullable=False, index=True)
-    id_photo_file_id = Column(String(255), nullable=True)
-    
     # Müraciət məlumatları
     form_type = Column(SQLEnum(FormTypeDB), nullable=False)
-    subject = Column(String(500), nullable=False)
     body = Column(Text, nullable=False)
     
     # Status və qeydlər
@@ -81,7 +78,6 @@ class Application(Base):
             "phone": self.phone,
             "fin": self.fin,
             "form_type": self.form_type.value,
-            "subject": self.subject,
             "body": self.body,
             "status": self.status.value,
             "notes": self.notes,
