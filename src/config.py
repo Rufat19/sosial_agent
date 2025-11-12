@@ -89,7 +89,8 @@ BLACKLIST_WINDOW_DAYS = 30         # bu qədər gün ərzində
 # Mətnlər (Azərbaycan dili)
 MESSAGES = {
     "welcome": (
-        "Soyad, ad və ata adınızı yazın (məs.: Məmmədov Kamran Əli oğlu).\n"
+        "Soyad, ad və ata adınızı yazın \n"
+        "(məsələn: Babayev Rüfət Rəsul oğlu).\n"
     ),
     "fullname_error": "Xahiş edirik soyad və adı düzgün daxil edin (ata adı əlavə oluna bilər).",
     "phone_prompt": "📱 Mobil nömrənizi daxil edin (məs.: +994501234567)",
