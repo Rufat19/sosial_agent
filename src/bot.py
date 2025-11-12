@@ -447,9 +447,17 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             kb = InlineKeyboardMarkup(buttons)
         try:
-            logger.info(f"İcraçılara göndərilir: chat_id={EXECUTOR_CHAT_ID_RT}")
-            # Foto paylaşımı dayandırılıb; yalnız mətn göndərilir
-            await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
+            logger.info(f"İcraçılara göndərilir: chat_id={EXECUTOR_CHAT_ID_RT}, photo_present={bool(app.id_photo_file_id)}")
+            # Foto varsa foto ilə göndər, yoxdursa mətn
+            if app.id_photo_file_id:
+                await context.bot.send_photo(
+                    chat_id=EXECUTOR_CHAT_ID_RT,
+                    photo=app.id_photo_file_id,
+                    caption=caption,
+                    reply_markup=kb,
+                )
+            else:
+                await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
             logger.info("✅ İcraçı qrupuna göndərildi")
         except Exception as send_err:
             msg = str(send_err)
@@ -462,7 +470,15 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     logger.warning(f"➡️ Yeni supergroup ID aşkarlandı: {new_id} — runtime yenilənir. .env-də EXECUTOR_CHAT_ID dəyərini də buna dəyişin.")
                     EXECUTOR_CHAT_ID_RT = new_id
                     try:
-                        await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
+                        if app.id_photo_file_id:
+                            await context.bot.send_photo(
+                                chat_id=EXECUTOR_CHAT_ID_RT,
+                                photo=app.id_photo_file_id,
+                                caption=caption,
+                                reply_markup=kb,
+                            )
+                        else:
+                            await context.bot.send_message(chat_id=EXECUTOR_CHAT_ID_RT, text=caption, reply_markup=kb)
                         logger.info("✅ Yeni ID ilə icraçı qrupuna göndərildi")
                     except Exception as retry_err:
                         logger.error(f"❌ Yeni ID ilə göndərmə də alınmadı: {retry_err}")
@@ -496,6 +512,13 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if orig_content:
             user_store["exec_original_content"] = orig_content
             user_store["exec_has_photo"] = bool(getattr(query.message, "photo", None))
+            # DM üçün foto id-ni də saxla (PostgreSQL-də DB-də saxlanmadığı üçün)
+            photos = getattr(query.message, "photo", None)
+            if photos:
+                try:
+                    user_store["exec_photo_file_id"] = photos[-1].file_id
+                except Exception:
+                    pass
     # Callback answer + inline button ilə DM-ə keçid linki
     await query.answer("📱 DM-ə keçilirsiniz...", show_alert=False)
     await query.edit_message_reply_markup(None)
@@ -504,6 +527,7 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user:
         try:
             app_text_var: Optional[str] = None
+            app_data = None
             
             if USE_SQLITE:
                 from db_sqlite import get_application_by_id_sqlite
@@ -546,10 +570,20 @@ async def exec_reply_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
             
             if app_text_var:
-                await context.bot.send_message(
-                    chat_id=user.id,
-                    text=app_text_var
-                )
+                # Foto varsa DM-də foto ilə göndər, yoxdursa mətn
+                photo_id = user_store.get("exec_photo_file_id")
+                if isinstance(photo_id, str) and photo_id:
+                    await context.bot.send_photo(chat_id=user.id, photo=photo_id, caption=app_text_var)
+                else:
+                    sqlite_photo_id = None
+                    if USE_SQLITE and isinstance(app_data, dict):
+                        raw = app_data.get('id_photo_file_id')
+                        if isinstance(raw, str) and raw:
+                            sqlite_photo_id = raw
+                    if sqlite_photo_id:
+                        await context.bot.send_photo(chat_id=user.id, photo=sqlite_photo_id, caption=app_text_var)
+                    else:
+                        await context.bot.send_message(chat_id=user.id, text=app_text_var)
         except Exception as e:
             logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
             if user:
@@ -580,6 +614,13 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if orig_content:
             user_store["exec_original_content"] = orig_content
             user_store["exec_has_photo"] = bool(getattr(query.message, "photo", None))
+            # DM üçün foto id-ni də saxla
+            photos = getattr(query.message, "photo", None)
+            if photos:
+                try:
+                    user_store["exec_photo_file_id"] = photos[-1].file_id
+                except Exception:
+                    pass
     # Callback answer + notification ilə DM-ə keçid
     await query.answer("📱 DM-ə keçilirsiniz...", show_alert=False)
     await query.edit_message_reply_markup(None)
@@ -587,13 +628,14 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # DM-ə müraciətin tam mətnini göndər
     if user:
         try:
-            app_text_var: Optional[str] = None
+            app_text: Optional[str] = None
+            sqlite_photo_id: Optional[str] = None
             if USE_SQLITE:
                 from db_sqlite import get_application_by_id_sqlite
                 app_data = get_application_by_id_sqlite(app_id)
                 if app_data:
-                    time_str = app_data.get('created_at', '')
-                    app_text_var = (
+                    time_str = str(app_data.get('created_at', ''))
+                    app_text = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app_data.get('fullname', '')}\n"
                         f"📱 Mobil nömrə: {app_data.get('phone', '')}\n"
@@ -603,11 +645,14 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "━━━━━━━━━━━━━━━━━━━━\n"
                         "👇 İmtina səbəbini yazın:"
                     )
+                    raw = app_data.get('id_photo_file_id')
+                    if isinstance(raw, str) and raw:
+                        sqlite_photo_id = raw
             else:
                 from db_operations import get_application_by_id
                 app = get_application_by_id(app_id)
                 if app:
-                    # Bakı vaxtına çevir
+                    # Bakı vaxtı
                     try:
                         from config import BAKU_TZ
                         from datetime import timezone
@@ -617,7 +662,7 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         time_str = dt.astimezone(BAKU_TZ).strftime('%d.%m.%y %H:%M:%S') if dt is not None else ''  # type: ignore[union-attr]
                     except Exception:
                         time_str = app.created_at.strftime('%d.%m.%y %H:%M:%S') if (app.created_at is not None) else ''  # type: ignore[union-attr]
-                    app_text_var = (
+                    app_text = (
                         "📋 Müraciət xülasəsi:\n"
                         f"👤 {app.fullname}\n"
                         f"📱 Mobil nömrə: {app.phone}\n"
@@ -628,11 +673,15 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "👇 İmtina səbəbini yazın:"
                     )
             
-            if app_text_var:
-                await context.bot.send_message(
-                    chat_id=user.id,
-                    text=app_text_var
-                )
+            if app_text:
+                # Foto varsa DM-də foto ilə göndər
+                photo_id = user_store.get("exec_photo_file_id")
+                if isinstance(photo_id, str) and photo_id:
+                    await context.bot.send_photo(chat_id=user.id, photo=photo_id, caption=app_text)
+                elif sqlite_photo_id:
+                    await context.bot.send_photo(chat_id=user.id, photo=sqlite_photo_id, caption=app_text)
+                else:
+                    await context.bot.send_message(chat_id=user.id, text=app_text)
         except Exception as e:
             logger.warning(f"DM-ə müraciət göndərərkən xəta: {e}")
             if user:
@@ -640,7 +689,6 @@ async def exec_reject_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=user.id,
                     text=f"🚫 İmtina səbəbini yazın (ID={app_id}):"
                 )
-    
     return States.EXEC_REJECT_REASON
 
 async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -708,6 +756,7 @@ async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_
         user_data.pop("exec_original_content", None)
         user_data.pop("exec_has_photo", None)
     return ConversationHandler.END
+
 
 async def exec_collect_reject_reason(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from_user = update.effective_user
