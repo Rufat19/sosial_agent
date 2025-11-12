@@ -136,6 +136,7 @@ class States(Enum):
     CONFIRM = auto()
     EXEC_REPLY_TEXT = auto()
     EXEC_REJECT_REASON = auto()
+    EXEC_EDIT_REPLY_TEXT = auto()
 
 @dataclass
 class ApplicationData:
@@ -295,6 +296,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 notice = "📋 Müraciət xülasəsi göndərildi.\n👇 İmtina səbəbini yazın:"
                 await msg.reply_text(notice)
                 # State-i əsas exec_conv_reject izləyir (per_user). Burada dialoqa keçmirik.
+                return ConversationHandler.END
+            except Exception:
+                pass
+        elif isinstance(param, str) and param.startswith("edit_"):
+            try:
+                app_id = int(param.split("_", 1)[1])
+                if context.user_data is not None:
+                    context.user_data["exec_app_id"] = app_id
+                # Mövcud cavabı göstər
+                existing_text = None
+                if USE_SQLITE:
+                    from db_sqlite import get_application_by_id_sqlite
+                    app_data = get_application_by_id_sqlite(app_id)
+                    if app_data:
+                        existing_text = (app_data.get('reply_text') or '') if isinstance(app_data, dict) else ''
+                else:
+                    from db_operations import get_application_by_id
+                    app = get_application_by_id(app_id)
+                    if app:
+                        try:
+                            existing_text = app.reply_text  # type: ignore[attr-defined]
+                        except Exception:
+                            existing_text = None
+                existing_text_str = str(existing_text) if existing_text is not None else ""
+                if len(existing_text_str) > 0:
+                    await msg.reply_text(f"Mövcud cavab:\n\n{existing_text_str}\n\n✏️ Yeni cavabı yazın:")
+                else:
+                    await msg.reply_text("✏️ Yeni cavabı yazın:")
+                # State-i per-user edit conv izləyir
                 return ConversationHandler.END
             except Exception:
                 pass
@@ -815,7 +845,7 @@ async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.send_message(chat_id=app.user_telegram_id, text=f"✅ Müraciətinizə cavab:\n\n{text}")  # type: ignore[arg-type]
             update_application_status(app_id, ApplicationStatus.COMPLETED, notes=f"Replied by @{from_user.username or from_user.id}", reply_text=text)
         
-        # Qrup mesajında statusu yenilə (cavab mesajı göstərmə, sadəcə status dəyiş)
+        # Qrup mesajında statusu yenilə və cavabı görünən et
         if exec_msg_id and exec_chat_id:
             try:
                 orig_content = user_data.get("exec_original_content", "")
@@ -826,18 +856,42 @@ async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_
                     f"🟢 Status: İcra edildi (@{from_user.username or from_user.id})",
                     orig_content
                 )
+                # Cavab mətni əlavə et (caption limitlərini nəzərə al)
+                CAP_LIMIT = 1000
+                reply_excerpt = text if len(text) <= 300 else (text[:300] + "…")
+                reply_block = "\n\n✉️ Cavab: " + reply_excerpt
+                # Əvvəlcə statusu dəyişib yeni mətni formalaşdır
+                if "✉️ Cavab:" in new_content:
+                    new_content = re.sub(r"✉️ Cavab:.*", f"✉️ Cavab: {reply_excerpt}", new_content, flags=re.S)
+                else:
+                    new_content = new_content + reply_block
+                # Limitdən böyükdürsə, baş hissəni qısaldıb cavabı saxla
+                if len(new_content) > CAP_LIMIT:
+                    head_len = max(CAP_LIMIT - len(reply_block) - 1, 0)
+                    # Baş hissəni status daxil olmaqla saxla, sonuna …, sonra cavab bloku
+                    base = re.sub(r"✉️ Cavab:.*", "", new_content, flags=re.S)
+                    base = base[:head_len] + ("…" if head_len > 0 else "")
+                    new_content = base + reply_block
+                # Qrup mesajına '✏️ Cavabı düzəlt' düyməsi əlavə et
+                edit_kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✏️ Cavabı düzəlt", callback_data=f"edit_reply:{app_id}")]
+                ])
                 if has_photo:
                     await context.bot.edit_message_caption(
                         chat_id=exec_chat_id,
                         message_id=exec_msg_id,
-                        caption=new_content
+                        caption=new_content,
+                        reply_markup=edit_kb
                     )
                 else:
                     await context.bot.edit_message_text(
                         chat_id=exec_chat_id,
                         message_id=exec_msg_id,
-                        text=new_content
+                        text=new_content,
+                        reply_markup=edit_kb
                     )
+                # Yadda saxla ki, sonradan edit edəndə bu kontentdən istifadə edək
+                user_data["exec_original_content"] = new_content
             except Exception as edit_err:
                 logger.warning(f"Qrup mesajı yenilənmədi: {edit_err}")
         
@@ -851,6 +905,105 @@ async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_
         user_data.pop("exec_chat_id", None)
         user_data.pop("exec_original_content", None)
         user_data.pop("exec_has_photo", None)
+    return ConversationHandler.END
+
+
+async def exec_edit_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Qrupdan 'Cavabı düzəlt' düyməsi basılanda DM-ə yönəlt."""
+    query = update.callback_query
+    chat = update.effective_chat
+    user = update.effective_user
+    user_store = _ud(context)
+    if not query or not query.data or not str(query.data).startswith("edit_reply:"):
+        return ConversationHandler.END
+    if chat and EXECUTOR_CHAT_ID_RT and chat.id != EXECUTOR_CHAT_ID_RT:
+        await query.answer("Yalnız icraçı qrupunda istifadə oluna bilər", show_alert=True)
+        return ConversationHandler.END
+    app_id = int(query.data.split(":", 1)[1])
+    user_store["exec_app_id"] = app_id
+    # Qrup mesaj konteksti saxla
+    if query.message:
+        user_store["exec_msg_id"] = query.message.message_id
+        user_store["exec_chat_id"] = query.message.chat.id
+        orig_content = getattr(query.message, "caption", None) or getattr(query.message, "text", None)
+        if orig_content:
+            user_store["exec_original_content"] = orig_content
+            user_store["exec_has_photo"] = bool(getattr(query.message, "photo", None))
+    # DM deep-link
+    url = None
+    try:
+        bot_username = context.bot.username
+        if bot_username:
+            url = f"https://t.me/{bot_username}?start=edit_{app_id}"
+    except Exception:
+        url = None
+    await query.answer("✏️ DM-ə keçilirsiniz...", show_alert=False, url=url)
+    return ConversationHandler.END
+
+
+async def exec_collect_edit_reply_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """DM-də yeni cavab mətni qəbul et, DB və qrup mesajını yenilə, vətəndaşa göndər."""
+    from_user = update.effective_user
+    msg = update.effective_message
+    user_data = context.user_data if context.user_data else {}
+    app_id = user_data.get("exec_app_id")
+    exec_msg_id = user_data.get("exec_msg_id")
+    exec_chat_id = user_data.get("exec_chat_id")
+    if not msg or not msg.text or not app_id or not from_user:
+        return States.EXEC_EDIT_REPLY_TEXT
+    new_text = msg.text.strip()
+    try:
+        if USE_SQLITE:
+            from db_sqlite import get_application_by_id_sqlite, update_application_status_sqlite
+            app = get_application_by_id_sqlite(app_id)
+            if not app:
+                await msg.reply_text("❌ Müraciət tapılmadı")
+                return ConversationHandler.END
+            # Vətəndaşa yenilənmiş cavab göndər
+            await context.bot.send_message(chat_id=app["user_telegram_id"], text=f"♻️ Yenilənmiş cavab:\n\n{new_text}")
+            update_application_status_sqlite(app_id, "completed", notes=f"Edited by @{from_user.username or from_user.id}")
+        else:
+            from db_operations import get_application_by_id, update_application_status, ApplicationStatus
+            app = get_application_by_id(app_id)
+            if not app:
+                await msg.reply_text("❌ Müraciət tapılmadı")
+                return ConversationHandler.END
+            await context.bot.send_message(chat_id=app.user_telegram_id, text=f"♻️ Yenilənmiş cavab:\n\n{new_text}")  # type: ignore[arg-type]
+            update_application_status(app_id, ApplicationStatus.COMPLETED, notes=f"Edited by @{from_user.username or from_user.id}", reply_text=new_text)
+
+        # Qrup mesajında cavab mətni hissəsini yenilə
+        if exec_msg_id and exec_chat_id:
+            try:
+                orig_content = user_data.get("exec_original_content", "")
+                has_photo = user_data.get("exec_has_photo", False)
+                CAP_LIMIT = 1000
+                reply_excerpt = new_text if len(new_text) <= 300 else (new_text[:300] + "…")
+                reply_block = "\n\n✉️ Cavab: " + reply_excerpt
+                if "✉️ Cavab:" in orig_content:
+                    base = re.sub(r"✉️ Cavab:.*", "", orig_content, flags=re.S)
+                    new_content = base + reply_block
+                else:
+                    new_content = orig_content + reply_block
+                if len(new_content) > CAP_LIMIT:
+                    head_len = max(CAP_LIMIT - len(reply_block) - 1, 0)
+                    base2 = re.sub(r"✉️ Cavab:.*", "", new_content, flags=re.S)
+                    base2 = base2[:head_len] + ("…" if head_len > 0 else "")
+                    new_content = base2 + reply_block
+                # '✏️ Cavabı düzəlt' düyməsini saxla
+                edit_kb = InlineKeyboardMarkup([[InlineKeyboardButton("✏️ Cavabı düzəlt", callback_data=f"edit_reply:{app_id}")]])
+                if has_photo:
+                    await context.bot.edit_message_caption(chat_id=exec_chat_id, message_id=exec_msg_id, caption=new_content, reply_markup=edit_kb)
+                else:
+                    await context.bot.edit_message_text(chat_id=exec_chat_id, message_id=exec_msg_id, text=new_content, reply_markup=edit_kb)
+                # Yeni məzmunu gələcək düzəlişlər üçün yadda saxla
+                user_data["exec_original_content"] = new_content
+            except Exception as e2:
+                logger.warning(f"Qrup mesajı yenilənmədi (edit): {e2}")
+
+        await msg.reply_text("✅ Cavab yeniləndi")
+    except Exception as e:
+        logger.error(f"exec_collect_edit_reply_text error: {e}")
+        await msg.reply_text(f"❌ Xəta: {e}")
     return ConversationHandler.END
 
 
@@ -1263,8 +1416,19 @@ def build_app() -> Application:
         per_chat=False,
         per_user=True,
     )
+    exec_conv_edit = ConversationHandler(
+        entry_points=[CallbackQueryHandler(exec_edit_entry, pattern=r"^edit_reply:\d+$")],
+        states={
+            States.EXEC_EDIT_REPLY_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, exec_collect_edit_reply_text)],
+        },
+        fallbacks=[],
+        allow_reentry=False,
+        per_chat=False,
+        per_user=True,
+    )
     app.add_handler(exec_conv_reply)
     app.add_handler(exec_conv_reject)
+    app.add_handler(exec_conv_edit)
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("chatid", chatid_cmd))
     app.add_handler(CommandHandler("export", export_cmd))
