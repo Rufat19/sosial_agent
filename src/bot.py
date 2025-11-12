@@ -283,7 +283,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await msg.reply_photo(photo=sqlite_photo_id, caption=app_text)
                     else:
                         await msg.reply_text(app_text)
-                return States.EXEC_REPLY_TEXT
+                # State-i əsas exec_conv_reply izləyir (per_user). Burada dialoqa keçmirik.
+                return ConversationHandler.END
             except Exception:
                 pass
         elif isinstance(param, str) and param.startswith("reject_"):
@@ -293,7 +294,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     context.user_data["exec_app_id"] = app_id
                 notice = "📋 Müraciət xülasəsi göndərildi.\n👇 İmtina səbəbini yazın:"
                 await msg.reply_text(notice)
-                return States.EXEC_REJECT_REASON
+                # State-i əsas exec_conv_reject izləyir (per_user). Burada dialoqa keçmirik.
+                return ConversationHandler.END
             except Exception:
                 pass
 
@@ -1248,6 +1250,8 @@ def build_app() -> Application:
         },
         fallbacks=[],
         allow_reentry=False,
+        per_chat=False,
+        per_user=True,
     )
     exec_conv_reject = ConversationHandler(
         entry_points=[CallbackQueryHandler(exec_reject_entry, pattern=r"^exec_reject:\d+$")],
@@ -1256,6 +1260,8 @@ def build_app() -> Application:
         },
         fallbacks=[],
         allow_reentry=False,
+        per_chat=False,
+        per_user=True,
     )
     app.add_handler(exec_conv_reply)
     app.add_handler(exec_conv_reject)
