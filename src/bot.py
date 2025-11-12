@@ -929,16 +929,34 @@ async def exec_edit_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if orig_content:
             user_store["exec_original_content"] = orig_content
             user_store["exec_has_photo"] = bool(getattr(query.message, "photo", None))
-    # DM deep-link
-    url = None
+    # DM-ə birbaşa xəbərdarlıq və mövcud cavabla birlikdə prompt göndər
+    await query.answer("✏️ DM-ə keçin: cavabı yeniləmək üçün mesaj yazın", show_alert=False)
     try:
-        bot_username = context.bot.username
-        if bot_username:
-            url = f"https://t.me/{bot_username}?start=edit_{app_id}"
-    except Exception:
-        url = None
-    await query.answer("✏️ DM-ə keçilirsiniz...", show_alert=False, url=url)
-    return ConversationHandler.END
+        # Mövcud cavabı əldə et
+        existing_text: Optional[str] = None
+        if USE_SQLITE:
+            from db_sqlite import get_application_by_id_sqlite
+            app_data = get_application_by_id_sqlite(app_id)
+            if app_data and isinstance(app_data, dict):
+                raw = app_data.get('reply_text')
+                if isinstance(raw, str):
+                    existing_text = raw
+        else:
+            from db_operations import get_application_by_id
+            app = get_application_by_id(app_id)
+            if app:
+                try:
+                    existing_text = app.reply_text  # type: ignore[attr-defined]
+                except Exception:
+                    existing_text = None
+        preface = "✏️ Yeni cavabı yazın:"
+        if existing_text:
+            preface = f"Mövcud cavab:\n\n{existing_text}\n\n✏️ Yeni cavabı yazın:"
+        if user:
+            await context.bot.send_message(chat_id=user.id, text=preface)
+    except Exception as dm_err:
+        logger.warning(f"Edit DM prompt göndərilə bilmədi: {dm_err}")
+    return States.EXEC_EDIT_REPLY_TEXT
 
 
 async def exec_collect_edit_reply_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
