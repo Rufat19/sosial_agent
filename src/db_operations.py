@@ -59,6 +59,25 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE applications DROP COLUMN IF EXISTS id_photo_file_id"))
                 conn.commit()
                 logger.info("✅ id_photo_file_id column dropped")
+
+            # Ensure PostgreSQL enum formtypedb contains 'APPLICATION'
+            try:
+                result = conn.execute(text(
+                    """
+                    SELECT e.enumlabel
+                    FROM pg_type t
+                    JOIN pg_enum e ON t.oid = e.enumtypid
+                    WHERE t.typname = 'formtypedb'
+                    """
+                ))
+                existing_values = {row[0] for row in result}
+                if 'APPLICATION' not in existing_values:
+                    logger.info("🔧 Adding enum value APPLICATION to type formtypedb…")
+                    conn.execute(text("ALTER TYPE formtypedb ADD VALUE 'APPLICATION'"))
+                    conn.commit()
+                    logger.info("✅ Enum value APPLICATION added to formtypedb")
+            except Exception as e2:
+                logger.warning(f"⚠️ Enum migration (formtypedb) skipped or failed: {type(e2).__name__}")
     except Exception as e:
         logger.warning(f"⚠️ Migration check skipped (may not be PostgreSQL): {type(e).__name__}")
 
