@@ -99,13 +99,22 @@ def save_application(
 ) -> Application:
     """Müraciəti database-ə yaz"""
     with get_db() as db:
+        # Form növünü düzgün xəritələ (3 variant)
+        if str(form_type) == "Şikayət":
+            ft = FormTypeDB.COMPLAINT
+        elif str(form_type) == "Təklif":
+            ft = FormTypeDB.SUGGESTION
+        else:
+            # "Ərizə" və ya gələcək uyğun dəyərlər üçün
+            ft = FormTypeDB.APPLICATION
+
         app = Application(
             user_telegram_id=user_telegram_id,
             user_username=user_username,
             fullname=fullname,
             phone=phone,
             fin=fin,
-            form_type=FormTypeDB.COMPLAINT if form_type == "Şikayət" else FormTypeDB.SUGGESTION,
+            form_type=ft,
             body=body,
             status=ApplicationStatus.PENDING,
             created_at=created_at,
