@@ -81,6 +81,7 @@ FIN_LENGTH = 7
 
 # Rate limiting - Spam qarşısı
 MAX_DAILY_SUBMISSIONS = 3  # İstifadəçi 24 saatda max 3 müraciət göndərə bilər
+MAX_MONTHLY_SUBMISSIONS = 3  # İstifadəçi 30 gün ərzində max 3 müraciət göndərə bilər
 
 # Blacklist qaydası - çox sayda imtina olunan müraciətlər
 BLACKLIST_REJECTION_THRESHOLD = 5  # Son pəncərədə bu qədər imtina olarsa
@@ -107,6 +108,18 @@ MESSAGES = {
     "cancelled": "❌ Müraciət ləğv edildi",
     "help": "ℹ️ /start ilə yeni müraciət göndərə bilərsiniz. /chatid ilə bu qrup/kanalın ID-sini görə bilərsiniz.",
     "unknown": "⚠️ Anlaşılmadı. Zəhmət olmasa /start yazın.",
+    "monthly_limit_exceeded": (
+        "⚠️ Bu ay artıq {limit} müraciət göndərmisiniz. "
+        "Daha çox müraciət etmək üçün bir az gözləyin və ya əvvəlki cavabları yoxlayın."
+    ),
+    "weekend_notice": (
+        "⚠️ Bu gün Bakı vaxtı ilə şənbə və ya bazar günü olduğu üçün müraciətinizi qəbul edə bilmirik. "
+        "Zəhmət olmasa müraciətinizi növbəti iş günündə, Bakı vaxtı ilə saat {start}–{end} aralığında göndərin."
+    ),
+    "offhours_notice": (
+        "⚠️ Bakı vaxtı ilə iş saatlarımız {start}–{end} aralığındadır. "
+        "Bu vaxtdan kənarda müraciət qəbul edilmir. Zəhmət olmasa iş vaxtında yenidən müraciət edin."
+    ),
 }
 
 logger.info(f"Konfiqurasiya yükləndi: {LANG.upper()}")

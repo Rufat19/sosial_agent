@@ -176,6 +176,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning("/start çağırışı message obyektisiz gəldi")
         return ConversationHandler.END
 
+    current_baku = datetime.now(BAKU_TZ)
+    if current_baku.weekday() in (5, 6):  # Şənbə və ya bazar
+        await msg.reply_text(
+            MESSAGES["weekend_notice"].format(start="09:00", end="18:00"),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        logger.info("Weekend block: müraciət yalnız iş günlərində qəbul olunur")
+        return ConversationHandler.END
+    if current_baku.hour < 9 or current_baku.hour >= 18:
+        await msg.reply_text(
+            MESSAGES["offhours_notice"].format(start="09:00", end="18:00"),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        logger.info("Outside working hours block: müraciət yalnız 09:00-18:00 qəbul olunur")
+        return ConversationHandler.END
+
     # Qara siyahı yoxlaması
     if uid and DB_ENABLED:
         try:
@@ -209,8 +225,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 from db_operations import count_user_recent_applications
                 recent_count = count_user_recent_applications(uid, hours=24)  # type: ignore[possibly-unbound]
-            
-            from config import MAX_DAILY_SUBMISSIONS
+
+            from config import MAX_DAILY_SUBMISSIONS, MAX_MONTHLY_SUBMISSIONS, MESSAGES
             if recent_count >= MAX_DAILY_SUBMISSIONS:
                 await msg.reply_text(
                     f"⚠️ Siz artıq son 24 saatda {MAX_DAILY_SUBMISSIONS} müraciət göndərmisiniz.\n"
@@ -218,6 +234,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=ReplyKeyboardRemove(),
                 )
                 logger.warning(f"Rate limit: user_id={uid} artıq {recent_count} müraciət göndərib")
+                return ConversationHandler.END
+            monthly_count = 0
+            if USE_SQLITE:
+                from db_sqlite import count_user_recent_applications_sqlite
+                monthly_count = count_user_recent_applications_sqlite(uid, hours=24 * 30)  # type: ignore[possibly-unbound]
+            else:
+                from db_operations import count_user_recent_applications
+                monthly_count = count_user_recent_applications(uid, hours=24 * 30)  # type: ignore[possibly-unbound]
+
+            if monthly_count >= MAX_MONTHLY_SUBMISSIONS:
+                await msg.reply_text(
+                    MESSAGES["monthly_limit_exceeded"].format(limit=MAX_MONTHLY_SUBMISSIONS),
+                    reply_markup=ReplyKeyboardRemove(),
+                )
+                logger.warning(f"Monthly rate limit: user_id={uid} already sent {monthly_count} in 30 days")
                 return ConversationHandler.END
         except Exception as e:
             logger.error(f"Rate limiting yoxlaması xətası: {e}")
