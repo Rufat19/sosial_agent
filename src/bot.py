@@ -36,6 +36,7 @@ from config import (
     BAKU_TZ,
     MAX_DAILY_SUBMISSIONS,
     MAX_MONTHLY_SUBMISSIONS,
+    ADMIN_USER_IDS,
     setup_logging,
 )
 import re
@@ -179,20 +180,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     current_baku = datetime.now(BAKU_TZ)
-    if current_baku.weekday() in (5, 6):  # Şənbə və ya bazar
-        await msg.reply_text(
-            MESSAGES["weekend_notice"].format(start="09:00", end="18:00"),
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        logger.info("Weekend block: müraciət yalnız iş günlərində qəbul olunur")
-        return ConversationHandler.END
-    if current_baku.hour < 9 or current_baku.hour >= 18:
-        await msg.reply_text(
-            MESSAGES["offhours_notice"].format(start="09:00", end="18:00"),
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        logger.info("Outside working hours block: müraciət yalnız 09:00-18:00 qəbul olunur")
-        return ConversationHandler.END
+    is_admin = uid in ADMIN_USER_IDS if uid else False
+    if not is_admin:
+        if current_baku.weekday() in (5, 6):  # Şənbə və ya bazar
+            await msg.reply_text(
+                MESSAGES["weekend_notice"].format(start="09:00", end="18:00"),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            logger.info("Weekend block: müraciət yalnız iş günlərində qəbul olunur")
+            return ConversationHandler.END
+        if current_baku.hour < 9 or current_baku.hour >= 18:
+            await msg.reply_text(
+                MESSAGES["offhours_notice"].format(start="09:00", end="18:00"),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            logger.info("Outside working hours block: müraciət yalnız 09:00-18:00 qəbul olunur")
+            return ConversationHandler.END
 
     # Qara siyahı yoxlaması
     if uid and DB_ENABLED:
@@ -216,7 +219,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Blacklist yoxlaması xətası: {e}")
     
     # Rate limiting yoxlaması (spam qarşısı) — adminlər azaddır
-    from config import ADMIN_USER_IDS
     # Admin istifadəçiləri üçün limit tətbiq olunmur
     if DB_ENABLED and uid and uid not in ADMIN_USER_IDS:
         try:
