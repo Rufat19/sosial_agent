@@ -38,7 +38,12 @@ sosial_agent/
 - **`/export` CSV export** (PostgreSQL: CSV fayl, SQLite: JSON)
 - **Diaqnostika komandaları:** `/ping`, `/chatid`
 
-### Yeni (0.4.3)
+### Yeni (0.4.4)
+- **/export** komandası yalnız adminlər üçün açıqdır. Admin olmayan istifadəçilər bu komandadan istifadə edə bilmir.
+- **/clearall** və bütün müraciətləri silmə əməliyyatından sonra müraciətlərin ID-si sıfırlanır (həm PostgreSQL, həm də SQLite üçün).
+- **/start** komandasında UnboundLocalError xətası aradan qaldırıldı (admin yoxlaması üçün global dəyişən düzəlişi).
+
+### Əvvəlki versiyalar (0.4.3 və öncəki)
 - **Üç form növü:** Şikayət, Təklif, və Ərizə
 - **Sadələşdirilmiş anket axını:** Mövzu addımı çıxarıldı - vətəndaşlar birbaşa məzmun yazır (mövzu avtomatik məzmundan yaranır)
 - **Yaxşılaşdırılmış CSV export:**

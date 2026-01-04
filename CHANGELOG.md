@@ -1,3 +1,15 @@
+# [0.4.4] - 2026-01-04 (Admin Yoxlaması, ID Reset və Xətaların Düzəlişi)
+### Added
+- **/export** komandası yalnız adminlər üçün açıq edildi. Admin olmayanlar istifadə edə bilmir.
+- **/clearall** və bütün müraciətləri silmə əməliyyatından sonra müraciətlərin ID-si sıfırlanır (həm PostgreSQL, həm də SQLite üçün).
+
+### Fixed
+- **UnboundLocalError**: `/start` komandasında `ADMIN_USER_IDS` üçün global düzəlişi əlavə olundu (artıq bot restartdan sonra xəta atmır).
+- **Admin yoxlaması**: Bütün admin əmrlərində (xüsusilə /export və /clearall) istifadəçi ID-si düzgün yoxlanılır.
+
+### Changed
+- Dəyişikliklər README və sənədlərdə qeyd olundu, kodun təhlükəsizliyi və məhdudiyyətləri artırıldı.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
