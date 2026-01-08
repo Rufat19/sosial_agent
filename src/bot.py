@@ -521,8 +521,9 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = (
         caption_prefix +
         status_line +
-        "🆕 Yeni müraciət\n\n" + app.summary_text() + 
-        f"\n👤 Göndərən: @{query.from_user.username or 'istifadəçi adı yoxdur'}\n"
+        app.summary_text() +
+        f"\n⏰ {app.timestamp.strftime('%d.%m.%y %H:%M:%S') if app.timestamp else ''}\n"
+        f"👤 Göndərən: @{query.from_user.username or 'istifadəçi adı yoxdur'}\n"
         f"🆔 User ID: {query.from_user.id}"
     )
 
