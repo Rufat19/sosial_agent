@@ -518,12 +518,17 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         status_line = "🟡 Status: Gözləyir\n\n"
     
+    # Yeni format: Sıra №, əsas məlumatlar, göndərən, müraciət tarixi, status və cavab
     caption = (
-        caption_prefix +
-        status_line +
-        app.summary_text() +
+        f"Sıra №: {db_id}\n"
+        f"👤 {app.fullname}\n"
+        f"📱 Mobil nömrə: {app.phone}\n"
+        f"🆔 FIN: {app.fin}\n"
+        f"✍️ Müraciət mətni: {app.body}\n\n"
         f"👤 Göndərən: @{query.from_user.username or 'istifadəçi adı yoxdur'}\n"
-        f"🆔 User ID: {query.from_user.id}"
+        f"🆔 User ID: {query.from_user.id}\n"
+        f"⏰Müraciət tarixi:  {app.timestamp.strftime('%d.%m.%Y  (%H:%M:%S)') if app.timestamp else ''}\n\n"
+        f"{status_line.strip()}\n"
     )
 
     # İcraçı qrupuna mesaj + foto (yalnız EXECUTOR_CHAT_ID düzgün olduqda)
@@ -543,6 +548,7 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"İcraçılara göndərilir: chat_id={EXECUTOR_CHAT_ID_RT}, photo_present={bool(app.id_photo_file_id)}")
             # Foto varsa foto ilə göndər, yoxdursa mətn
             if app.id_photo_file_id:
+                # Şəkil əvvəlki kimi, sadəcə caption yeni formatda
                 await context.bot.send_photo(
                     chat_id=EXECUTOR_CHAT_ID_RT,
                     photo=app.id_photo_file_id,
