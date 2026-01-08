@@ -523,10 +523,10 @@ async def confirm_or_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Sıra №: {db_id}\n"
         f"👤 {app.fullname}\n"
         f"📱 Mobil nömrə: {app.phone}\n"
-        f"🆔 FIN: {app.fin}\n"
+        f"#️⃣ FIN: {app.fin}\n"
         f"✍️ Müraciət mətni: {app.body}\n\n"
-        f"👤 Göndərən: @{query.from_user.username or 'istifadəçi adı yoxdur'}\n"
-        f"🆔 User ID: {query.from_user.id}\n"
+        f"📧 @{query.from_user.username or 'istifadəçi adı yoxdur'}\n"
+        f"🆔: {query.from_user.id}\n"
         f"⏰Müraciət tarixi:  {app.timestamp.strftime('%d.%m.%Y  (%H:%M:%S)') if app.timestamp else ''}\n\n"
         f"{status_line.strip()}\n"
     )
