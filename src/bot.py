@@ -832,26 +832,24 @@ async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_
                 orig_content = user_data.get("exec_original_content", "")
                 has_photo = user_data.get("exec_has_photo", False)
                 # Status sətirini dəyiş: 🟡 Gözləyir → 🟢 İcra edildi
+                # Status sətirini dəyiş: 🟡 Gözləyir → 🟢 İcra edildi (statusdan sonra cavablandıran əməkdaşın ID-si ayrıca sətirdə)
                 new_content = re.sub(
                     r"🟡 Status: Gözləyir",
-                    f"🟢 Status: İcra edildi (@{from_user.username or from_user.id})",
+                    "🟢 Status: İcra edildi",
                     orig_content
                 )
-                # Cavab mətni əlavə et (caption limitlərini nəzərə al)
                 CAP_LIMIT = 1000
                 reply_excerpt = text if len(text) <= 300 else (text[:300] + "…")
-                reply_block = "\n\n✉️ Cavab: " + reply_excerpt
-                # Əvvəlcə statusu dəyişib yeni mətni formalaşdır
+                exec_info = f"Cavablandıran Əməkdaş -(@{from_user.username or from_user.id})\n"
+                reply_block = f"\n{exec_info}✉️ Cavab: {reply_excerpt}"
+                # Əvvəlki cavab varsa, onu sil və yeni formatda əlavə et
                 if "✉️ Cavab:" in new_content:
-                    new_content = re.sub(r"✉️ Cavab:.*", f"✉️ Cavab: {reply_excerpt}", new_content, flags=re.S)
-                else:
-                    new_content = new_content + reply_block
-                # Limitdən böyükdürsə, baş hissəni qısaldıb cavabı saxla
+                    new_content = re.sub(r"Cavablandıran Əməkdaş -\(@.*?\)\n✉️ Cavab:.*", "", new_content, flags=re.S)
+                    new_content = re.sub(r"✉️ Cavab:.*", "", new_content, flags=re.S)
+                new_content = new_content.rstrip() + reply_block
                 if len(new_content) > CAP_LIMIT:
                     head_len = max(CAP_LIMIT - len(reply_block) - 1, 0)
-                    # Baş hissəni status daxil olmaqla saxla, sonuna …, sonra cavab bloku
-                    base = re.sub(r"✉️ Cavab:.*", "", new_content, flags=re.S)
-                    base = base[:head_len] + ("…" if head_len > 0 else "")
+                    base = new_content[:head_len] + ("…" if head_len > 0 else "")
                     new_content = base + reply_block
                 # Qrup mesajına '✏️ Cavabı düzəlt' düyməsi əlavə et
                 edit_kb = InlineKeyboardMarkup([
