@@ -250,14 +250,8 @@ def get_overdue_applications(days: int = 3) -> list[Application]:
         ).order_by(Application.created_at).all()
 
 def count_user_recent_applications(user_telegram_id: int, hours: int = 24) -> int:
-    """Son N saat içində istifadəçinin müraciət sayını say"""
-    from datetime import datetime, timedelta
-    cutoff_time = datetime.now() - timedelta(hours=hours)
-    with get_db() as db:
-        return db.query(Application).filter(
-            Application.user_telegram_id == user_telegram_id,
-            Application.created_at >= cutoff_time
-        ).count()
+    """Limitsiz rejim: Həmişə 0 qaytarır"""
+    return 0
 
 def export_to_csv(limit: int = 1000) -> str:
     """PostgreSQL-dən bütün müraciətləri CSV formatına çevir"""
