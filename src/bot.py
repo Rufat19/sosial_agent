@@ -846,7 +846,7 @@ async def exec_collect_reply_text(update: Update, context: ContextTypes.DEFAULT_
                 )
                 CAP_LIMIT = 1000
                 reply_excerpt = text if len(text) <= 300 else (text[:300] + "…")
-                exec_info = f"Cavablandıran Əməkdaş -(@{from_user.username or from_user.id})\n"
+                exec_info = f"Cavablandıran Əməkdaş -(@{from_user.username if from_user.username else from_user.id})\n"
                 reply_block = f"\n{exec_info}✉️ Cavab: {reply_excerpt}"
                 # Əvvəlki cavab varsa, onu sil və yeni formatda əlavə et
                 if "✉️ Cavab:" in new_content:
