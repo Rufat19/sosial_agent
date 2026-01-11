@@ -72,4 +72,4 @@ Bu Telegram botu vətəndaş müraciətlərini mərhələli anketlə toplayır v
 - Bütün DB əməliyyatları üçün `db_operations.py`-dəki API funksiyalarından istifadə edin
 - Admin-only komandaların məhdudiyyətlərinə riayət edin
 - Status və bildiriş konvensiyalarına əməl edin (istifadəçi və qrup üçün)
-- Yuxarıdakı fayllara baxın, nümunə və konvensiyaları oradan gön
+- Yuxarıdakı fayllara baxın, nümunə və konvensiyaları oradan götürün
