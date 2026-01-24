@@ -111,6 +111,7 @@ MESSAGES = {
     "confirm_sent": (
         "✅ Müraciətiniz qeydə alındı və icraçılara yönləndirildi. "
         "Müraciətinizin cavabı verildikdə siz bununla bağlı bildiriş alacaqsınız."
+        " Təkrar müraciət göndərmək üçün /start yazın."
     ),
     "success": "",
     "cancelled": "❌ Müraciət ləğv edildi",
